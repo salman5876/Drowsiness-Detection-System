@@ -28,5 +28,5 @@ A real-time drowsiness detection system that uses a webcam and AI model to monit
    python app.py
    Access the app at http://127.0.0.1:5000 in your browser.
 
-## For Model Contact me through email `mughalsalman616@gmail.com`
+## For model contact me through email `mughalsalman616@gmail.com`
 
