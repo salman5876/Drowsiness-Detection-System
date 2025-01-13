@@ -26,5 +26,5 @@ A real-time drowsiness detection system that uses a webcam and AI model to monit
    cd drowsiness-detection-System
    pip install -r requirements.txt
    python app.py
-   Access the app at http://127.0.0.1:5000 in your browser.```
+   Access the app at http://127.0.0.1:5000 in your browser.
 
