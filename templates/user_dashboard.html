@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Dashboard</title>
+    <style>
+        /* Dark Theme Base Styling */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #121212;
+            color: #e4e4e4;
+        }
+
+        /* Container for Top Section */
+        .top-section {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 20px;
+        }
+
+        h2 {
+            color: #ffffff;
+            margin: 0;
+        }
+
+        .welcome {
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .logout-button {
+            padding: 10px 20px;
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        .logout-button:hover {
+            background-color: #c82333;
+        }
+
+        /* Video and Button Container */
+        #video-container {
+            margin: 20px;
+            text-align: center;
+        }
+
+        button {
+            padding: 10px 15px;
+            margin: 10px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        button:disabled {
+            background-color: #6c757d;
+            cursor: not-allowed;
+        }
+
+        img {
+            max-width: 100%;
+            height: auto;
+            border: 2px solid #007bff;
+            border-radius: 5px;
+        }
+
+        /* Model status display */
+        .model-status {
+            font-size: 18px;
+            font-weight: bold;
+            margin-top: 20px;
+            color: #ffc107; /* Amber color for status */
+        }
+    </style>
+</head>
+<body>
+    <!-- Top Section: Dashboard Title, Welcome Message, and Logout Button -->
+    <div class="top-section">
+        <h2>User Dashboard</h2>
+        <div class="welcome" style="text-align: center;">Welcome, {{ username }}!</div>
+        <a href="/logout" class="logout-button">Logout</a>
+    </div>
+    
+    <audio id="alert-sound" src="{{ url_for('static', filename='wake_up_alert.mp3') }}" preload="auto"></audio>
+
+    <!-- Flash Message Section -->
+    <div class="content">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="flash-message {% if category == 'error' %}flash-error{% endif %}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+    </div>
+    <!-- Model Prediction Status -->
+    <div class="model-status" style="text-align: center;">
+        <span id="model-status">Model Status: </span>
+    </div>
+
+    <!-- Video Feed Section -->
+    <div id="video-container">
+        <img id="video-feed" src="{{ url_for('static', filename='drowiness.jpg') }}" alt="Video Feed" width="640" height="480">
+        <div id="alert-box" class="alert-message" style="display: none;">Alert Message Here</div>
+    </div>
+
+    <!-- Camera Control Buttons -->
+    <div style="text-align: center;">
+        <button id="start-btn">Start Camera</button>
+        <button id="stop-btn" disabled>Stop Camera</button>
+    </div>
+<br>
+    <div style=" text-align: center;">
+        <label for="threshold">Drowsiness Threshold:</label>
+        <input type="range" id="threshold" min="0.1" max="0.5" step="0.01" value="0.3" onchange="updateThreshold(this.value)">
+        <span id="thresholdValue">0.3</span>
+    </div>
+    <br>
+    <br>
+    <br>
+
+    <script>
+        const startButton = document.getElementById('start-btn');
+        const stopButton = document.getElementById('stop-btn');
+        const videoFeed = document.getElementById('video-feed');
+        const alertBox = document.getElementById('alert-box');
+        const modelStatus = document.getElementById('model-status');
+        const alertSound = document.getElementById('alert-sound');  // Reference to the audio element
+    
+        // Function to update model status
+        function updateModelStatus(status) {
+            modelStatus.textContent = "Model Status: " + status;
+            modelStatus.style.color = status === "Drowsy" ? "#dc3545" : "#ffc107"; // Change color based on status
+    
+            if (status === "Drowsy") {
+                alertSound.play();  // Play alert sound
+            } else {
+                alertSound.pause();
+                alertSound.currentTime = 0;  // Reset the sound if not drowsy
+            }
+        }
+    
+        startButton.addEventListener('click', () => {
+            fetch('/start_camera', { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    console.log(data.status);
+                    videoFeed.src = "/video_feed";
+                    startButton.disabled = true;
+                    stopButton.disabled = false;
+                })
+                .catch(err => showAlert("Error starting camera", "error"));
+        });
+    
+        stopButton.addEventListener('click', () => {
+            fetch('/stop_camera', { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    console.log(data.status);
+                    videoFeed.src = "{{ url_for('static', filename='drowiness.jpg') }}";
+                    startButton.disabled = false;
+                    stopButton.disabled = true;
+                })
+                .catch(err => showAlert("Error stopping camera", "error"));
+        });
+    
+        // Update model prediction status every second using AJAX
+        setInterval(() => {
+            fetch('/get_model_status')
+                .then(response => response.json())
+                .then(data => {
+                    updateModelStatus(data.status);
+                });
+        }, 1000); // Poll every second
+    
+        function updateThreshold(value) {
+            document.getElementById("thresholdValue").textContent = value;
+    
+            fetch('/update_threshold', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ threshold: parseFloat(value) }),
+            }).then(response => {
+                if (response.ok) {
+                    console.log('Threshold updated successfully');
+                } else {
+                    console.error('Failed to update threshold');
+                }
+            });
+        }
+    </script>
+    
+</body>
+</html>
